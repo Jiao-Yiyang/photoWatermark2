@@ -6,6 +6,9 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.font.FontRenderContext;
+import java.awt.font.TextLayout;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -22,6 +25,16 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private JComboBox<String> positionComboBox;
     private JButton importButton;
     private JButton exportButton;
+    
+    // 新增的高级功能控件
+    private JComboBox<String> fontFamilyComboBox;
+    private JSpinner fontSizeSpinner;
+    private JCheckBox boldCheckBox;
+    private JCheckBox italicCheckBox;
+    private JButton colorButton;
+    private Color selectedColor = Color.WHITE;
+    private JCheckBox shadowCheckBox;
+    private JCheckBox strokeCheckBox;
     
     private List<File> imageFiles;
     private BufferedImage currentImage;
@@ -101,24 +114,88 @@ public class SwingPhotoWatermarkApp extends JFrame {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new TitledBorder("水印设置"));
-        panel.setPreferredSize(new Dimension(250, 0));
+        panel.setPreferredSize(new Dimension(280, 0));
         
         // 水印文本
         JPanel textPanel = new JPanel(new BorderLayout());
         textPanel.add(new JLabel("水印文本:"), BorderLayout.NORTH);
         watermarkText = new JTextField("Sample Watermark");
+        // 添加文本变化监听器
+        watermarkText.addActionListener(e -> updatePreview());
+        watermarkText.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { updatePreview(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { updatePreview(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { updatePreview(); }
+        });
         textPanel.add(watermarkText, BorderLayout.CENTER);
         panel.add(textPanel);
         
         panel.add(Box.createVerticalStrut(10));
         
+        // 字体设置面板
+        JPanel fontPanel = new JPanel();
+        fontPanel.setLayout(new BoxLayout(fontPanel, BoxLayout.Y_AXIS));
+        fontPanel.setBorder(new TitledBorder("字体设置"));
+        
+        // 字体族
+        JPanel fontFamilyPanel = new JPanel(new BorderLayout());
+        fontFamilyPanel.add(new JLabel("字体:"), BorderLayout.WEST);
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        String[] fontNames = ge.getAvailableFontFamilyNames();
+        fontFamilyComboBox = new JComboBox<>(fontNames);
+        fontFamilyComboBox.setSelectedItem("Arial");
+        fontFamilyComboBox.addActionListener(e -> updatePreview());
+        fontFamilyPanel.add(fontFamilyComboBox, BorderLayout.CENTER);
+        fontPanel.add(fontFamilyPanel);
+        
+        // 字号和样式
+        JPanel fontStylePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        fontStylePanel.add(new JLabel("字号:"));
+        fontSizeSpinner = new JSpinner(new SpinnerNumberModel(24, 8, 200, 1));
+        fontSizeSpinner.addChangeListener(e -> updatePreview());
+        fontStylePanel.add(fontSizeSpinner);
+        
+        boldCheckBox = new JCheckBox("粗体");
+        boldCheckBox.addActionListener(e -> updatePreview());
+        fontStylePanel.add(boldCheckBox);
+        
+        italicCheckBox = new JCheckBox("斜体");
+        italicCheckBox.addActionListener(e -> updatePreview());
+        fontStylePanel.add(italicCheckBox);
+        
+        fontPanel.add(fontStylePanel);
+        panel.add(fontPanel);
+        
+        panel.add(Box.createVerticalStrut(10));
+        
+        // 颜色设置
+        JPanel colorPanel = new JPanel(new BorderLayout());
+        colorPanel.add(new JLabel("颜色:"), BorderLayout.WEST);
+        colorButton = new JButton();
+        colorButton.setBackground(selectedColor);
+        colorButton.setPreferredSize(new Dimension(50, 25));
+        colorButton.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "选择水印颜色", selectedColor);
+            if (newColor != null) {
+                selectedColor = newColor;
+                colorButton.setBackground(selectedColor);
+                updatePreview();
+            }
+        });
+        colorPanel.add(colorButton, BorderLayout.CENTER);
+        panel.add(colorPanel);
+        
+        panel.add(Box.createVerticalStrut(10));
+        
         // 透明度设置
         JPanel transparencyPanel = new JPanel(new BorderLayout());
-        transparencyPanel.add(new JLabel("透明度:"), BorderLayout.NORTH);
+        transparencyPanel.add(new JLabel("透明度 (0%=不透明, 100%=透明):"), BorderLayout.NORTH);
         transparencySlider = new JSlider(0, 100, 50);
         transparencySlider.setMajorTickSpacing(25);
         transparencySlider.setPaintTicks(true);
         transparencySlider.setPaintLabels(true);
+        // 添加透明度变化监听器
+        transparencySlider.addChangeListener(e -> updatePreview());
         transparencyPanel.add(transparencySlider, BorderLayout.CENTER);
         panel.add(transparencyPanel);
         
@@ -130,8 +207,27 @@ public class SwingPhotoWatermarkApp extends JFrame {
         String[] positions = {"左上角", "上中", "右上角", "左中", "中心", "右中", "左下角", "下中", "右下角"};
         positionComboBox = new JComboBox<>(positions);
         positionComboBox.setSelectedIndex(8); // 默认右下角
+        // 添加位置变化监听器
+        positionComboBox.addActionListener(e -> updatePreview());
         positionPanel.add(positionComboBox, BorderLayout.CENTER);
         panel.add(positionPanel);
+        
+        panel.add(Box.createVerticalStrut(10));
+        
+        // 样式效果
+        JPanel effectPanel = new JPanel();
+        effectPanel.setLayout(new BoxLayout(effectPanel, BoxLayout.Y_AXIS));
+        effectPanel.setBorder(new TitledBorder("样式效果"));
+        
+        shadowCheckBox = new JCheckBox("阴影效果");
+        shadowCheckBox.addActionListener(e -> updatePreview());
+        effectPanel.add(shadowCheckBox);
+        
+        strokeCheckBox = new JCheckBox("描边效果");
+        strokeCheckBox.addActionListener(e -> updatePreview());
+        effectPanel.add(strokeCheckBox);
+        
+        panel.add(effectPanel);
         
         panel.add(Box.createVerticalGlue());
         
@@ -161,16 +257,132 @@ public class SwingPhotoWatermarkApp extends JFrame {
                 File selectedFile = imageFiles.get(selectedIndex);
                 currentImage = ImageIO.read(selectedFile);
                 
-                // 缩放图片以适应预览区域
-                ImageIcon icon = new ImageIcon(scaleImage(currentImage, 400, 400));
-                imagePreview.setIcon(icon);
-                imagePreview.setText("");
-                
+                updatePreview();
                 exportButton.setEnabled(true);
             } catch (IOException e) {
                 JOptionPane.showMessageDialog(this, "加载图片失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+    
+    private void updatePreview() {
+        if (currentImage != null) {
+            // 创建带水印的预览图片
+            BufferedImage previewImage = addWatermarkForPreview(currentImage);
+            
+            // 缩放图片以适应预览区域
+            ImageIcon icon = new ImageIcon(scaleImage(previewImage, 400, 400));
+            imagePreview.setIcon(icon);
+            imagePreview.setText("");
+        }
+    }
+    
+    private BufferedImage addWatermarkForPreview(BufferedImage originalImage) {
+        // 创建预览用的水印图片（与导出功能相同的逻辑）
+        BufferedImage watermarkedImage = new BufferedImage(
+            originalImage.getWidth(), 
+            originalImage.getHeight(), 
+            BufferedImage.TYPE_INT_RGB
+        );
+        
+        Graphics2D g2d = watermarkedImage.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        
+        // 绘制原始图片
+        g2d.drawImage(originalImage, 0, 0, null);
+        
+        // 设置水印样式
+        String text = watermarkText.getText();
+        if (text != null && !text.trim().isEmpty()) {
+            // 创建字体
+            String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
+            int fontSize = (Integer) fontSizeSpinner.getValue();
+            int fontStyle = Font.PLAIN;
+            if (boldCheckBox.isSelected()) fontStyle |= Font.BOLD;
+            if (italicCheckBox.isSelected()) fontStyle |= Font.ITALIC;
+            
+            Font font = new Font(fontFamily, fontStyle, fontSize);
+            g2d.setFont(font);
+            
+            // 修复透明度逻辑：100% = 完全透明，0% = 完全不透明
+            float alpha = (100 - transparencySlider.getValue()) / 100.0f;
+            g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // 计算文本尺寸
+            FontMetrics fm = g2d.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            int textHeight = fm.getHeight();
+            
+            // 根据选择的位置计算坐标
+            int x, y;
+            String position = (String) positionComboBox.getSelectedItem();
+            
+            switch (position) {
+                case "左上角":
+                    x = 10;
+                    y = textHeight;
+                    break;
+                case "上中":
+                    x = (originalImage.getWidth() - textWidth) / 2;
+                    y = textHeight;
+                    break;
+                case "右上角":
+                    x = originalImage.getWidth() - textWidth - 10;
+                    y = textHeight;
+                    break;
+                case "左中":
+                    x = 10;
+                    y = (originalImage.getHeight() + textHeight) / 2;
+                    break;
+                case "中心":
+                    x = (originalImage.getWidth() - textWidth) / 2;
+                    y = (originalImage.getHeight() + textHeight) / 2;
+                    break;
+                case "右中":
+                    x = originalImage.getWidth() - textWidth - 10;
+                    y = (originalImage.getHeight() + textHeight) / 2;
+                    break;
+                case "左下角":
+                    x = 10;
+                    y = originalImage.getHeight() - 10;
+                    break;
+                case "下中":
+                    x = (originalImage.getWidth() - textWidth) / 2;
+                    y = originalImage.getHeight() - 10;
+                    break;
+                case "右下角":
+                default:
+                    x = originalImage.getWidth() - textWidth - 10;
+                    y = originalImage.getHeight() - 10;
+                    break;
+            }
+            
+            // 绘制阴影效果
+            if (shadowCheckBox.isSelected()) {
+                g2d.setColor(Color.BLACK);
+                g2d.drawString(text, x + 2, y + 2);
+            }
+            
+            // 绘制描边效果
+             if (strokeCheckBox.isSelected()) {
+                 g2d.setColor(Color.BLACK);
+                 g2d.setStroke(new BasicStroke(2));
+                 // 创建文本轮廓
+                 Font originalFont = g2d.getFont();
+                 FontRenderContext frc = g2d.getFontRenderContext();
+                 TextLayout textLayout = new TextLayout(text, originalFont, frc);
+                 Shape outline = textLayout.getOutline(AffineTransform.getTranslateInstance(x, y));
+                 g2d.draw(outline);
+             }
+            
+            // 绘制主要文本
+            g2d.setColor(selectedColor);
+            g2d.drawString(text, x, y);
+        }
+        
+        g2d.dispose();
+        return watermarkedImage;
     }
     
     private BufferedImage scaleImage(BufferedImage original, int maxWidth, int maxHeight) {
@@ -248,6 +460,8 @@ public class SwingPhotoWatermarkApp extends JFrame {
         );
         
         Graphics2D g2d = watermarkedImage.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         
         // 绘制原始图片
         g2d.drawImage(originalImage, 0, 0, null);
@@ -255,16 +469,19 @@ public class SwingPhotoWatermarkApp extends JFrame {
         // 设置水印样式
         String text = watermarkText.getText();
         if (text != null && !text.trim().isEmpty()) {
-            // 设置字体
-            Font font = new Font("Arial", Font.BOLD, Math.max(originalImage.getWidth() / 20, 12));
+            // 创建字体
+            String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
+            int fontSize = (Integer) fontSizeSpinner.getValue();
+            int fontStyle = Font.PLAIN;
+            if (boldCheckBox.isSelected()) fontStyle |= Font.BOLD;
+            if (italicCheckBox.isSelected()) fontStyle |= Font.ITALIC;
+            
+            Font font = new Font(fontFamily, fontStyle, fontSize);
             g2d.setFont(font);
             
-            // 设置透明度
-            float alpha = transparencySlider.getValue() / 100.0f;
+            // 修复透明度逻辑：100% = 完全透明，0% = 完全不透明
+            float alpha = (100 - transparencySlider.getValue()) / 100.0f;
             g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            
-            // 设置颜色
-            g2d.setColor(Color.WHITE);
             
             // 计算文本尺寸
             FontMetrics fm = g2d.getFontMetrics();
@@ -315,7 +532,26 @@ public class SwingPhotoWatermarkApp extends JFrame {
                     break;
             }
             
-            // 绘制水印文本
+            // 绘制阴影效果
+            if (shadowCheckBox.isSelected()) {
+                g2d.setColor(Color.BLACK);
+                g2d.drawString(text, x + 2, y + 2);
+            }
+            
+            // 绘制描边效果
+            if (strokeCheckBox.isSelected()) {
+                g2d.setColor(Color.BLACK);
+                g2d.setStroke(new BasicStroke(2));
+                // 创建文本轮廓
+                Font originalFont = g2d.getFont();
+                FontRenderContext frc = g2d.getFontRenderContext();
+                TextLayout textLayout = new TextLayout(text, originalFont, frc);
+                Shape outline = textLayout.getOutline(AffineTransform.getTranslateInstance(x, y));
+                g2d.draw(outline);
+            }
+            
+            // 绘制主要文本
+            g2d.setColor(selectedColor);
             g2d.drawString(text, x, y);
         }
         
