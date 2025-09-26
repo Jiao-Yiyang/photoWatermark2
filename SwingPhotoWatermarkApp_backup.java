@@ -58,19 +58,17 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private JSlider rotationSlider;
     private JTextField rotationTextField;
     
-    // 拖拽功能相关变量
-    private boolean isDraggingWatermark = false;
-    private Point watermarkOffset = new Point(0, 0); // 相对于预设位置的偏移
-    private Point lastMousePosition = new Point();
-    private boolean useCustomPosition = false; // 是否使用自定义位置
-    private double currentScaleFactor = 1.0; // 当前预览图片的缩放比例
-    
-    // 模板管理相关组件
-    private TemplateManager templateManager;
-    private JComboBox<String> templateComboBox;
-    private JButton saveTemplateButton;
-    private JButton deleteTemplateButton;
-    
+    // 图片水印相关变量
+    private JComboBox<String> watermarkTypeComboBox;
+    private JButton selectImageButton;
+    private JLabel imageWatermarkLabel;
+    private BufferedImage watermarkImage;
+    private JSlider imageScaleSlider;
+    private JTextField imageScaleTextField;
+    private JSlider imageTransparencySlider;
+    private JPanel textWatermarkPanel;
+    private JPanel imageWatermarkPanel;
+
     private List<File> imageFiles;
     private BufferedImage currentImage;
     private List<Boolean> imageSelectionStates; // 记录每个图片的选中状态
@@ -80,9 +78,7 @@ public class SwingPhotoWatermarkApp extends JFrame {
         imageFiles = new ArrayList<>();
         imageSelectionStates = new ArrayList<>();
         thumbnailCache = new ArrayList<>();
-        templateManager = new TemplateManager();
         initializeUI();
-        loadLastSettings(); // 启动时加载上次的设置
     }
     
     private void initializeUI() {
@@ -259,9 +255,6 @@ public class SwingPhotoWatermarkApp extends JFrame {
         imagePreview.setVerticalAlignment(SwingConstants.CENTER);
         imagePreview.setBorder(BorderFactory.createLoweredBevelBorder());
         
-        // 添加鼠标监听器以支持水印拖拽
-        setupWatermarkDragListeners();
-        
         JScrollPane scrollPane = new JScrollPane(imagePreview);
         scrollPane.setPreferredSize(new Dimension(400, 400)); // 设置滚动面板的首选尺寸
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
@@ -276,6 +269,33 @@ public class SwingPhotoWatermarkApp extends JFrame {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new TitledBorder("水印设置"));
         
+        // 水印类型选择
+        JPanel typePanel = new JPanel(new BorderLayout());
+        typePanel.setBorder(new TitledBorder("水印类型"));
+        watermarkTypeComboBox = new JComboBox<>(new String[]{"文字水印", "图片水印"});
+        watermarkTypeComboBox.setSelectedIndex(0); // 默认选择文字水印
+        watermarkTypeComboBox.addActionListener(e -> switchWatermarkType());
+        typePanel.add(watermarkTypeComboBox, BorderLayout.CENTER);
+        panel.add(typePanel);
+        
+        panel.add(Box.createVerticalStrut(10));
+        
+        // 创建文字水印面板
+        textWatermarkPanel = createTextWatermarkPanel();
+        panel.add(textWatermarkPanel);
+        
+        // 创建图片水印面板
+        imageWatermarkPanel = createImageWatermarkPanel();
+        imageWatermarkPanel.setVisible(false); // 初始隐藏
+        panel.add(imageWatermarkPanel);
+        
+        return panel;
+    }
+    
+    private JPanel createTextWatermarkPanel() {
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        
         // 水印文本
         JPanel textPanel = new JPanel(new BorderLayout());
         textPanel.add(new JLabel("水印文本:"), BorderLayout.NORTH);
@@ -288,9 +308,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
             public void changedUpdate(javax.swing.event.DocumentEvent e) { updatePreview(); }
         });
         textPanel.add(watermarkText, BorderLayout.CENTER);
-        panel.add(textPanel);
+        mainPanel.add(textPanel);
         
-        panel.add(Box.createVerticalStrut(10));
+        mainPanel.add(Box.createVerticalStrut(10));
         
         // 字体设置面板
         JPanel fontPanel = new JPanel();
@@ -324,9 +344,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
         fontStylePanel.add(italicCheckBox);
         
         fontPanel.add(fontStylePanel);
-        panel.add(fontPanel);
+        mainPanel.add(fontPanel);
         
-        panel.add(Box.createVerticalStrut(10));
+        mainPanel.add(Box.createVerticalStrut(10));
         
         // 颜色设置
         JPanel colorPanel = new JPanel(new BorderLayout());
@@ -345,9 +365,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
             }
         });
         colorPanel.add(colorButton, BorderLayout.CENTER);
-        panel.add(colorPanel);
+        mainPanel.add(colorPanel);
         
-        panel.add(Box.createVerticalStrut(10));
+        mainPanel.add(Box.createVerticalStrut(10));
         
         // 透明度设置
         JPanel transparencyPanel = new JPanel(new BorderLayout());
@@ -359,9 +379,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
         // 添加透明度变化监听器
         transparencySlider.addChangeListener(e -> updatePreview());
         transparencyPanel.add(transparencySlider, BorderLayout.CENTER);
-        panel.add(transparencyPanel);
+        mainPanel.add(transparencyPanel);
         
-        panel.add(Box.createVerticalStrut(10));
+        mainPanel.add(Box.createVerticalStrut(10));
         
         // 位置设置和样式效果并排布局
         JPanel positionStylePanel = new JPanel(new GridLayout(1, 2, 10, 0));
@@ -392,9 +412,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
         
         positionStylePanel.add(positionPanel);
         positionStylePanel.add(effectPanel);
-        panel.add(positionStylePanel);
+        mainPanel.add(positionStylePanel);
         
-        panel.add(Box.createVerticalStrut(10));
+        mainPanel.add(Box.createVerticalStrut(10));
         
         // 旋转角度设置
         JPanel rotationPanel = new JPanel(new BorderLayout());
@@ -438,7 +458,7 @@ public class SwingPhotoWatermarkApp extends JFrame {
         rotationControlPanel.add(rotationSlider, BorderLayout.CENTER);
         rotationControlPanel.add(inputPanel, BorderLayout.SOUTH);
         rotationPanel.add(rotationControlPanel, BorderLayout.CENTER);
-        panel.add(rotationPanel);
+        mainPanel.add(rotationPanel);
         
         // 输出格式选择
         JPanel outputPanel = new JPanel();
@@ -463,7 +483,7 @@ public class SwingPhotoWatermarkApp extends JFrame {
         qualityPanel.add(jpegQualitySlider);
         outputPanel.add(qualityPanel);
         
-        panel.add(outputPanel);
+        mainPanel.add(outputPanel);
         
         // 导出选项
         JPanel exportOptionsPanel = new JPanel();
@@ -560,38 +580,114 @@ public class SwingPhotoWatermarkApp extends JFrame {
         folderPanel.add(folderSelectPanel, BorderLayout.CENTER);
         exportOptionsPanel.add(folderPanel);
         
-        panel.add(exportOptionsPanel);
+        mainPanel.add(exportOptionsPanel);
         
-        // 模板管理面板
-        JPanel templatePanel = new JPanel();
-        templatePanel.setLayout(new BoxLayout(templatePanel, BoxLayout.Y_AXIS));
-        templatePanel.setBorder(new TitledBorder("模板管理"));
+        return mainPanel;
+    }
+    
+    private void switchWatermarkType() {
+        String selectedType = (String) watermarkTypeComboBox.getSelectedItem();
+        if ("文字水印".equals(selectedType)) {
+            textWatermarkPanel.setVisible(true);
+            imageWatermarkPanel.setVisible(false);
+        } else {
+            textWatermarkPanel.setVisible(false);
+            imageWatermarkPanel.setVisible(true);
+        }
+        updatePreview();
+    }
+    
+    private JPanel createImageWatermarkPanel() {
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
         
-        // 模板选择
-        JPanel templateSelectPanel = new JPanel(new BorderLayout());
-        templateSelectPanel.add(new JLabel("选择模板:"), BorderLayout.WEST);
-        templateComboBox = new JComboBox<>();
-        templateComboBox.addActionListener(e -> loadSelectedTemplate());
-        templateSelectPanel.add(templateComboBox, BorderLayout.CENTER);
-        templatePanel.add(templateSelectPanel);
+        // 图片选择面板
+        JPanel imageSelectPanel = new JPanel(new BorderLayout());
+        imageSelectPanel.setBorder(BorderFactory.createTitledBorder("图片选择"));
         
-        // 模板操作按钮
-        JPanel templateButtonPanel = new JPanel(new FlowLayout());
-        saveTemplateButton = new JButton("保存模板");
-        saveTemplateButton.addActionListener(e -> saveCurrentTemplate());
-        templateButtonPanel.add(saveTemplateButton);
+        selectImageButton = new JButton("选择图片");
+        selectImageButton.addActionListener(e -> selectWatermarkImage());
+        imageSelectPanel.add(selectImageButton, BorderLayout.WEST);
         
-        deleteTemplateButton = new JButton("删除模板");
-        deleteTemplateButton.addActionListener(e -> deleteSelectedTemplate());
-        templateButtonPanel.add(deleteTemplateButton);
+        imageWatermarkLabel = new JLabel("未选择图片");
+        imageWatermarkLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        imageSelectPanel.add(imageWatermarkLabel, BorderLayout.CENTER);
         
-        templatePanel.add(templateButtonPanel);
-        panel.add(templatePanel);
+        mainPanel.add(imageSelectPanel);
+        mainPanel.add(Box.createVerticalStrut(10));
         
-        // 初始化模板列表
-        refreshTemplateList();
+        // 缩放控制面板
+        JPanel scalePanel = new JPanel(new BorderLayout());
+        scalePanel.setBorder(BorderFactory.createTitledBorder("缩放比例"));
         
-        return panel;
+        imageScaleSlider = new JSlider(10, 200, 100);
+        imageScaleSlider.setMajorTickSpacing(50);
+        imageScaleSlider.setMinorTickSpacing(10);
+        imageScaleSlider.setPaintTicks(true);
+        imageScaleSlider.setPaintLabels(true);
+        imageScaleSlider.addChangeListener(e -> {
+            int value = imageScaleSlider.getValue();
+            imageScaleTextField.setText(String.valueOf(value));
+            updatePreview();
+        });
+        
+        imageScaleTextField = new JTextField("100", 5);
+        imageScaleTextField.addActionListener(e -> {
+            try {
+                int value = Integer.parseInt(imageScaleTextField.getText());
+                value = Math.max(10, Math.min(200, value));
+                imageScaleSlider.setValue(value);
+                imageScaleTextField.setText(String.valueOf(value));
+                updatePreview();
+            } catch (NumberFormatException ex) {
+                imageScaleTextField.setText(String.valueOf(imageScaleSlider.getValue()));
+            }
+        });
+        
+        JPanel scaleInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        scaleInputPanel.add(new JLabel("比例:"));
+        scaleInputPanel.add(imageScaleTextField);
+        scaleInputPanel.add(new JLabel("%"));
+        
+        scalePanel.add(scaleInputPanel, BorderLayout.NORTH);
+        scalePanel.add(imageScaleSlider, BorderLayout.CENTER);
+        
+        mainPanel.add(scalePanel);
+        mainPanel.add(Box.createVerticalStrut(10));
+        
+        // 透明度控制面板
+        JPanel transparencyPanel = new JPanel(new BorderLayout());
+        transparencyPanel.setBorder(BorderFactory.createTitledBorder("透明度"));
+        
+        imageTransparencySlider = new JSlider(0, 100, 100);
+        imageTransparencySlider.setMajorTickSpacing(25);
+        imageTransparencySlider.setMinorTickSpacing(5);
+        imageTransparencySlider.setPaintTicks(true);
+        imageTransparencySlider.setPaintLabels(true);
+        imageTransparencySlider.addChangeListener(e -> updatePreview());
+        
+        transparencyPanel.add(imageTransparencySlider, BorderLayout.CENTER);
+        
+        mainPanel.add(transparencyPanel);
+        
+        return mainPanel;
+    }
+    
+    private void selectWatermarkImage() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("图片文件 (*.png, *.jpg, *.jpeg)", "png", "jpg", "jpeg"));
+        
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            try {
+                watermarkImage = ImageIO.read(selectedFile);
+                imageWatermarkLabel.setText(selectedFile.getName());
+                updatePreview();
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "无法加载图片: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
     
     private JPanel createBottomPanel() {
@@ -754,13 +850,6 @@ public class SwingPhotoWatermarkApp extends JFrame {
             BufferedImage previewImage = addWatermarkForPreview(currentImage);
             // 强制缩放图片到固定尺寸以适应预览区域
             BufferedImage scaledImage = scaleImage(previewImage, 400, 400);
-            
-            // 计算缩放比例
-            currentScaleFactor = Math.min(400.0 / previewImage.getWidth(), 400.0 / previewImage.getHeight());
-            if (currentScaleFactor > 1.0) {
-                currentScaleFactor = 1.0; // 如果图片小于预览区域，不放大
-            }
-            
             imagePreview.setIcon(new ImageIcon(scaledImage));
             imagePreview.setText("");
             
@@ -785,78 +874,86 @@ public class SwingPhotoWatermarkApp extends JFrame {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         
-        String text = watermarkText.getText();
-        if (text != null && !text.trim().isEmpty()) {
-            // 获取字体设置
-            String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
-            int fontSize = (Integer) fontSizeSpinner.getValue();
-            int fontStyle = Font.PLAIN;
-            if (boldCheckBox.isSelected()) fontStyle |= Font.BOLD;
-            if (italicCheckBox.isSelected()) fontStyle |= Font.ITALIC;
-            
-            Font font = new Font(fontFamily, fontStyle, fontSize);
-            g2d.setFont(font);
-            
-            // 计算文本位置
-            FontRenderContext frc = g2d.getFontRenderContext();
-            TextLayout textLayout = new TextLayout(text, font, frc);
-            Rectangle2D textBounds = textLayout.getBounds();
-            
-            int imageWidth = originalImage.getWidth();
-            int imageHeight = originalImage.getHeight();
-            int textWidth = (int) textBounds.getWidth();
-            int textHeight = (int) textBounds.getHeight();
-            
-            int x, y;
-            String position = (String) positionComboBox.getSelectedItem();
-            
-            // 如果使用自定义位置（拖拽后），则使用偏移位置
-            if (useCustomPosition) {
-                // 计算基础位置
-                Point basePos = getBaseWatermarkPositionForImage(imageWidth, imageHeight, textWidth, textHeight, position);
-                x = basePos.x + watermarkOffset.x;
-                y = basePos.y + watermarkOffset.y;
-            } else {
-                // 使用预设位置
-                switch (position) {
-                    case "左上角":
-                        x = 10;
-                        y = textHeight + 10;
-                        break;
-                    case "上中":
-                        x = (imageWidth - textWidth) / 2;
-                        y = textHeight + 10;
-                        break;
-                    case "右上角":
-                        x = imageWidth - textWidth - 10;
-                        y = textHeight + 10;
-                        break;
-                    case "左中":
-                        x = 10;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "中心":
-                        x = (imageWidth - textWidth) / 2;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "右中":
-                        x = imageWidth - textWidth - 10;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "左下角":
-                        x = 10;
-                        y = imageHeight - 10;
-                        break;
-                    case "下中":
-                        x = (imageWidth - textWidth) / 2;
-                        y = imageHeight - 10;
-                        break;
-                    case "右下角":
-                    default:
-                        x = imageWidth - textWidth - 10;
-                        y = imageHeight - 10;
-                        break;
-                }
+        // 检查水印类型
+        String watermarkType = (String) watermarkTypeComboBox.getSelectedItem();
+        
+        if ("文字水印".equals(watermarkType)) {
+            // 文字水印处理
+            String text = watermarkText.getText();
+            if (text != null && !text.trim().isEmpty()) {
+                addTextWatermark(g2d, originalImage, text);
+            }
+        } else if ("图片水印".equals(watermarkType) && watermarkImage != null) {
+            // 图片水印处理
+            addImageWatermark(g2d, originalImage);
+        }
+        
+        g2d.dispose();
+        return watermarkedImage;
+    }
+    
+    private void addTextWatermark(Graphics2D g2d, BufferedImage originalImage, String text) {
+        // 获取字体设置
+        String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
+        int fontSize = (Integer) fontSizeSpinner.getValue();
+        int fontStyle = Font.PLAIN;
+        if (boldCheckBox.isSelected()) fontStyle |= Font.BOLD;
+        if (italicCheckBox.isSelected()) fontStyle |= Font.ITALIC;
+        
+        Font font = new Font(fontFamily, fontStyle, fontSize);
+        g2d.setFont(font);
+        
+        // 计算文本位置
+        FontRenderContext frc = g2d.getFontRenderContext();
+        TextLayout textLayout = new TextLayout(text, font, frc);
+        Rectangle2D textBounds = textLayout.getBounds();
+        
+        int imageWidth = originalImage.getWidth();
+        int imageHeight = originalImage.getHeight();
+        int textWidth = (int) textBounds.getWidth();
+        int textHeight = (int) textBounds.getHeight();
+        
+        int x, y;
+        String position = (String) positionComboBox.getSelectedItem();
+        
+        switch (position) {
+            case "左上角":
+                x = 10;
+                y = textHeight + 10;
+                break;
+            case "上中":
+                x = (imageWidth - textWidth) / 2;
+                y = textHeight + 10;
+                break;
+            case "右上角":
+                x = imageWidth - textWidth - 10;
+                y = textHeight + 10;
+                break;
+            case "左中":
+                x = 10;
+                y = (imageHeight + textHeight) / 2;
+                break;
+            case "中心":
+                x = (imageWidth - textWidth) / 2;
+                    y = (imageHeight + textHeight) / 2;
+                    break;
+                case "右中":
+                    x = imageWidth - textWidth - 10;
+                    y = (imageHeight + textHeight) / 2;
+                    break;
+                case "左下角":
+                    x = 10;
+                    y = imageHeight - 10;
+                    break;
+                case "下中":
+                    x = (imageWidth - textWidth) / 2;
+                    y = imageHeight - 10;
+                    break;
+                case "右下角":
+                default:
+                    x = imageWidth - textWidth - 10;
+                    y = imageHeight - 10;
+                    break;
             }
             
             // 设置透明度
@@ -924,9 +1021,73 @@ public class SwingPhotoWatermarkApp extends JFrame {
                 g2d.drawString(text, x, y);
             }
         }
+    }
+    
+    private void addImageWatermark(Graphics2D g2d, BufferedImage originalImage) {
+        if (watermarkImage == null) return;
         
-        g2d.dispose();
-        return watermarkedImage;
+        // 获取缩放比例
+        float scale = imageScaleSlider.getValue() / 100.0f;
+        int scaledWidth = (int) (watermarkImage.getWidth() * scale);
+        int scaledHeight = (int) (watermarkImage.getHeight() * scale);
+        
+        // 计算位置（使用与文字水印相同的位置逻辑）
+        int imageWidth = originalImage.getWidth();
+        int imageHeight = originalImage.getHeight();
+        
+        int x, y;
+        String position = (String) positionComboBox.getSelectedItem();
+        
+        switch (position) {
+            case "左上角":
+                x = 10;
+                y = 10;
+                break;
+            case "上中":
+                x = (imageWidth - scaledWidth) / 2;
+                y = 10;
+                break;
+            case "右上角":
+                x = imageWidth - scaledWidth - 10;
+                y = 10;
+                break;
+            case "左中":
+                x = 10;
+                y = (imageHeight - scaledHeight) / 2;
+                break;
+            case "中心":
+                x = (imageWidth - scaledWidth) / 2;
+                y = (imageHeight - scaledHeight) / 2;
+                break;
+            case "右中":
+                x = imageWidth - scaledWidth - 10;
+                y = (imageHeight - scaledHeight) / 2;
+                break;
+            case "左下角":
+                x = 10;
+                y = imageHeight - scaledHeight - 10;
+                break;
+            case "下中":
+                x = (imageWidth - scaledWidth) / 2;
+                y = imageHeight - scaledHeight - 10;
+                break;
+            case "右下角":
+            default:
+                x = imageWidth - scaledWidth - 10;
+                y = imageHeight - scaledHeight - 10;
+                break;
+        }
+        
+        // 设置透明度
+        float alpha = imageTransparencySlider.getValue() / 100.0f;
+        Composite originalComposite = g2d.getComposite();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        
+        // 绘制缩放后的水印图片
+        g2d.drawImage(watermarkImage, x, y, scaledWidth, scaledHeight, null);
+        
+        // 恢复原始合成模式
+        g2d.setComposite(originalComposite);
     }
     
     private BufferedImage scaleImage(BufferedImage original, int maxWidth, int maxHeight) {
@@ -1417,143 +1578,16 @@ public class SwingPhotoWatermarkApp extends JFrame {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         
-        String text = watermarkText.getText();
-        if (text != null && !text.trim().isEmpty()) {
-            // 获取字体设置
-            String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
-            int fontSize = (Integer) fontSizeSpinner.getValue();
-            int fontStyle = Font.PLAIN;
-            if (boldCheckBox.isSelected()) fontStyle |= Font.BOLD;
-            if (italicCheckBox.isSelected()) fontStyle |= Font.ITALIC;
-            
-            Font font = new Font(fontFamily, fontStyle, fontSize);
-            g2d.setFont(font);
-            
-            // 计算文本位置
-            FontRenderContext frc = g2d.getFontRenderContext();
-            TextLayout textLayout = new TextLayout(text, font, frc);
-            Rectangle2D textBounds = textLayout.getBounds();
-            
-            int imageWidth = originalImage.getWidth();
-            int imageHeight = originalImage.getHeight();
-            int textWidth = (int) textBounds.getWidth();
-            int textHeight = (int) textBounds.getHeight();
-            
-            int x, y;
-            String position = (String) positionComboBox.getSelectedItem();
-            
-            // 如果使用自定义位置（拖拽后），则使用偏移位置
-            if (useCustomPosition) {
-                // 计算基础位置
-                Point basePos = getBaseWatermarkPositionForImage(imageWidth, imageHeight, textWidth, textHeight, position);
-                x = basePos.x + watermarkOffset.x;
-                y = basePos.y + watermarkOffset.y;
-            } else {
-                // 使用预设位置
-                switch (position) {
-                    case "左上角":
-                        x = 10;
-                        y = textHeight + 10;
-                        break;
-                    case "上中":
-                        x = (imageWidth - textWidth) / 2;
-                        y = textHeight + 10;
-                        break;
-                    case "右上角":
-                        x = imageWidth - textWidth - 10;
-                        y = textHeight + 10;
-                        break;
-                    case "左中":
-                        x = 10;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "中心":
-                        x = (imageWidth - textWidth) / 2;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "右中":
-                        x = imageWidth - textWidth - 10;
-                        y = (imageHeight + textHeight) / 2;
-                        break;
-                    case "左下角":
-                        x = 10;
-                        y = imageHeight - 10;
-                        break;
-                    case "下中":
-                        x = (imageWidth - textWidth) / 2;
-                        y = imageHeight - 10;
-                        break;
-                    case "右下角":
-                    default:
-                        x = imageWidth - textWidth - 10;
-                        y = imageHeight - 10;
-                        break;
-                }
+        // 根据水印类型添加水印
+        String selectedType = (String) watermarkTypeComboBox.getSelectedItem();
+        if ("文字水印".equals(selectedType)) {
+            String text = watermarkText.getText();
+            if (text != null && !text.trim().isEmpty()) {
+                addTextWatermark(g2d, originalImage, text);
             }
-            
-            // 设置透明度
-            float alpha = 1.0f - (transparencySlider.getValue() / 100.0f);
-            
-            // 获取旋转角度
-            int rotationAngle = rotationSlider.getValue();
-            
-            // 如果有旋转角度，应用旋转变换
-            if (rotationAngle != 0) {
-                // 保存当前的变换状态
-                AffineTransform originalTransform = g2d.getTransform();
-                
-                // 计算旋转中心点（文本的中心）
-                double centerX = x + textWidth / 2.0;
-                double centerY = y - textHeight / 2.0;
-                
-                // 应用旋转变换
-                g2d.rotate(Math.toRadians(rotationAngle), centerX, centerY);
-                
-                // 绘制阴影效果
-                if (shadowCheckBox.isSelected()) {
-                    g2d.setColor(new Color(0, 0, 0, alpha * 0.5f));
-                    g2d.drawString(text, x + 2, y + 2);
-                }
-                
-                // 绘制描边效果
-                if (strokeCheckBox.isSelected()) {
-                    g2d.setColor(new Color(0, 0, 0, alpha));
-                    g2d.setStroke(new BasicStroke(2));
-                    
-                    // 创建文本轮廓
-                    AffineTransform textTransform = AffineTransform.getTranslateInstance(x, y);
-                    Shape textShape = textLayout.getOutline(textTransform);
-                    g2d.draw(textShape);
-                }
-                
-                // 绘制主文本
-                g2d.setColor(new Color(selectedColor.getRed(), selectedColor.getGreen(), selectedColor.getBlue(), (int)(alpha * 255)));
-                g2d.drawString(text, x, y);
-                
-                // 恢复原始变换状态
-                g2d.setTransform(originalTransform);
-            } else {
-                // 没有旋转时的原始绘制逻辑
-                // 绘制阴影效果
-                if (shadowCheckBox.isSelected()) {
-                    g2d.setColor(new Color(0, 0, 0, alpha * 0.5f));
-                    g2d.drawString(text, x + 2, y + 2);
-                }
-                
-                // 绘制描边效果
-                if (strokeCheckBox.isSelected()) {
-                    g2d.setColor(new Color(0, 0, 0, alpha));
-                    g2d.setStroke(new BasicStroke(2));
-                    
-                    // 创建文本轮廓
-                    AffineTransform transform = AffineTransform.getTranslateInstance(x, y);
-                    Shape textShape = textLayout.getOutline(transform);
-                    g2d.draw(textShape);
-                }
-                
-                // 绘制主文本
-                g2d.setColor(new Color(selectedColor.getRed(), selectedColor.getGreen(), selectedColor.getBlue(), (int)(alpha * 255)));
-                g2d.drawString(text, x, y);
+        } else if ("图片水印".equals(selectedType)) {
+            if (watermarkImage != null) {
+                addImageWatermark(g2d, originalImage);
             }
         }
         
@@ -1578,368 +1612,13 @@ public class SwingPhotoWatermarkApp extends JFrame {
         }
     }
     
-    // 设置水印拖拽监听器
-    private void setupWatermarkDragListeners() {
-        imagePreview.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mousePressed(java.awt.event.MouseEvent e) {
-                if (currentImage != null && !watermarkText.getText().trim().isEmpty()) {
-                    // 检查是否点击在水印区域
-                    Point watermarkPos = calculateWatermarkPosition();
-                    if (watermarkPos != null) {
-                        Rectangle watermarkBounds = getWatermarkBounds(watermarkPos);
-                        if (watermarkBounds.contains(e.getPoint())) {
-                            isDraggingWatermark = true;
-                            lastMousePosition = e.getPoint();
-                            imagePreview.setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
-                            // 添加视觉反馈 - 稍微降低透明度表示正在拖拽
-                            imagePreview.setToolTipText("拖拽水印到新位置");
-                        }
-                    }
-                }
-            }
-            
-            @Override
-            public void mouseReleased(java.awt.event.MouseEvent e) {
-                if (isDraggingWatermark) {
-                    isDraggingWatermark = false;
-                    imagePreview.setCursor(Cursor.getDefaultCursor());
-                    useCustomPosition = true;
-                    imagePreview.setToolTipText(null); // 清除提示
-                    updatePreview();
-                }
-            }
-            
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                if (currentImage != null && !watermarkText.getText().trim().isEmpty()) {
-                    imagePreview.setToolTipText("点击并拖拽水印可调整位置");
-                }
-            }
-            
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent e) {
-                if (!isDraggingWatermark) {
-                    imagePreview.setToolTipText(null);
-                    imagePreview.setCursor(Cursor.getDefaultCursor());
-                }
-            }
-        });
-        
-        imagePreview.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
-            @Override
-            public void mouseDragged(java.awt.event.MouseEvent e) {
-                if (isDraggingWatermark) {
-                    int deltaX = e.getX() - lastMousePosition.x;
-                    int deltaY = e.getY() - lastMousePosition.y;
-                    
-                    // 根据缩放比例调整偏移量
-                    watermarkOffset.x += (int)(deltaX / currentScaleFactor);
-                    watermarkOffset.y += (int)(deltaY / currentScaleFactor);
-                    
-                    lastMousePosition = e.getPoint();
-                    // 实时更新预览，提供流畅的拖拽体验
-                    updatePreview();
-                }
-            }
-            
-            @Override
-            public void mouseMoved(java.awt.event.MouseEvent e) {
-                if (currentImage != null && !watermarkText.getText().trim().isEmpty()) {
-                    Point watermarkPos = calculateWatermarkPosition();
-                    if (watermarkPos != null) {
-                        Rectangle watermarkBounds = getWatermarkBounds(watermarkPos);
-                        if (watermarkBounds.contains(e.getPoint())) {
-                            imagePreview.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                            imagePreview.setToolTipText("点击并拖拽调整水印位置");
-                        } else {
-                            imagePreview.setCursor(Cursor.getDefaultCursor());
-                            imagePreview.setToolTipText("点击并拖拽水印可调整位置");
-                        }
-                    }
-                }
-            }
-        });
-    }
-    
-    // 计算水印位置
-    private Point calculateWatermarkPosition() {
-        if (currentImage == null) return null;
-        
-        Icon icon = imagePreview.getIcon();
-        if (!(icon instanceof ImageIcon)) return null;
-        
-        ImageIcon imageIcon = (ImageIcon) icon;
-        int imgWidth = imageIcon.getIconWidth();
-        int imgHeight = imageIcon.getIconHeight();
-        
-        // 计算图片在JLabel中的实际位置
-        int labelWidth = imagePreview.getWidth();
-        int labelHeight = imagePreview.getHeight();
-        int x = (labelWidth - imgWidth) / 2;
-        int y = (labelHeight - imgHeight) / 2;
-        
-        // 根据位置设置计算基础位置
-        Point basePos = getBaseWatermarkPosition(imgWidth, imgHeight);
-        
-        // 将偏移量转换到预览图片的坐标系（考虑缩放比例）
-        int scaledOffsetX = (int)(watermarkOffset.x * currentScaleFactor);
-        int scaledOffsetY = (int)(watermarkOffset.y * currentScaleFactor);
-        
-        // 添加偏移
-        return new Point(x + basePos.x + scaledOffsetX, y + basePos.y + scaledOffsetY);
-    }
-    
-    // 获取基础水印位置（不包含偏移）
-    private Point getBaseWatermarkPosition(int imgWidth, int imgHeight) {
-        String position = (String) positionComboBox.getSelectedItem();
-        int padding = 20;
-        
-        // 估算文本尺寸
-        Font font = getWatermarkFont();
-        FontMetrics fm = imagePreview.getFontMetrics(font);
-        int textWidth = fm.stringWidth(watermarkText.getText());
-        int textHeight = fm.getHeight();
-        
-        switch (position) {
-            case "左上角": return new Point(padding, padding + textHeight);
-            case "上中": return new Point((imgWidth - textWidth) / 2, padding + textHeight);
-            case "右上角": return new Point(imgWidth - textWidth - padding, padding + textHeight);
-            case "左中": return new Point(padding, (imgHeight + textHeight) / 2);
-            case "中心": return new Point((imgWidth - textWidth) / 2, (imgHeight + textHeight) / 2);
-            case "右中": return new Point(imgWidth - textWidth - padding, (imgHeight + textHeight) / 2);
-            case "左下角": return new Point(padding, imgHeight - padding);
-            case "下中": return new Point((imgWidth - textWidth) / 2, imgHeight - padding);
-            case "右下角": return new Point(imgWidth - textWidth - padding, imgHeight - padding);
-            default: return new Point((imgWidth - textWidth) / 2, (imgHeight + textHeight) / 2);
-        }
-    }
-    
-    // 获取水印边界矩形
-    private Rectangle getWatermarkBounds(Point watermarkPos) {
-        Font font = getWatermarkFont();
-        FontMetrics fm = imagePreview.getFontMetrics(font);
-        int textWidth = fm.stringWidth(watermarkText.getText());
-        int textHeight = fm.getHeight();
-        
-        return new Rectangle(watermarkPos.x, watermarkPos.y - textHeight, textWidth, textHeight);
-    }
-    
-    // 获取水印字体
-    private Font getWatermarkFont() {
-        String fontFamily = (String) fontFamilyComboBox.getSelectedItem();
-        int fontSize = (Integer) fontSizeSpinner.getValue();
-        int style = Font.PLAIN;
-        if (boldCheckBox.isSelected()) style |= Font.BOLD;
-        if (italicCheckBox.isSelected()) style |= Font.ITALIC;
-        return new Font(fontFamily, style, fontSize);
-    }
-    
-    // 为图片计算基础水印位置的方法
-    private Point getBaseWatermarkPositionForImage(int imageWidth, int imageHeight, int textWidth, int textHeight, String position) {
-        int x, y;
-        switch (position) {
-            case "左上角":
-                x = 10;
-                y = textHeight + 10;
-                break;
-            case "上中":
-                x = (imageWidth - textWidth) / 2;
-                y = textHeight + 10;
-                break;
-            case "右上角":
-                x = imageWidth - textWidth - 10;
-                y = textHeight + 10;
-                break;
-            case "左中":
-                x = 10;
-                y = (imageHeight + textHeight) / 2;
-                break;
-            case "中心":
-                x = (imageWidth - textWidth) / 2;
-                y = (imageHeight + textHeight) / 2;
-                break;
-            case "右中":
-                x = imageWidth - textWidth - 10;
-                y = (imageHeight + textHeight) / 2;
-                break;
-            case "左下角":
-                x = 10;
-                y = imageHeight - 10;
-                break;
-            case "下中":
-                x = (imageWidth - textWidth) / 2;
-                y = imageHeight - 10;
-                break;
-            case "右下角":
-            default:
-                x = imageWidth - textWidth - 10;
-                y = imageHeight - 10;
-                break;
-        }
-        return new Point(x, y);
-    }
-    
-    // 模板管理相关方法
-    private void refreshTemplateList() {
-        templateComboBox.removeAllItems();
-        templateComboBox.addItem("-- 选择模板 --");
-        
-        List<String> templates = templateManager.getTemplateNames();
-        for (String template : templates) {
-            templateComboBox.addItem(template);
-        }
-        
-        deleteTemplateButton.setEnabled(templates.size() > 0);
-    }
-    
-    private void loadSelectedTemplate() {
-        String selectedTemplate = (String) templateComboBox.getSelectedItem();
-        if (selectedTemplate == null || selectedTemplate.equals("-- 选择模板 --")) {
-            return;
-        }
-        
-        try {
-            WatermarkTemplate template = templateManager.loadTemplate(selectedTemplate);
-            applyTemplate(template);
-            updatePreview();
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "加载模板失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-    
-    private void saveCurrentTemplate() {
-        String templateName = JOptionPane.showInputDialog(this, "请输入模板名称:", "保存模板", JOptionPane.PLAIN_MESSAGE);
-        if (templateName == null || templateName.trim().isEmpty()) {
-            return;
-        }
-        
-        try {
-            WatermarkTemplate template = getCurrentTemplate();
-            template.setTemplateName(templateName.trim());
-            templateManager.saveTemplate(template);
-            refreshTemplateList();
-            templateComboBox.setSelectedItem(templateName.trim());
-            JOptionPane.showMessageDialog(this, "模板保存成功!", "成功", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "保存模板失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-    
-    private void deleteSelectedTemplate() {
-        String selectedTemplate = (String) templateComboBox.getSelectedItem();
-        if (selectedTemplate == null || selectedTemplate.equals("-- 选择模板 --")) {
-            JOptionPane.showMessageDialog(this, "请先选择要删除的模板", "提示", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        int result = JOptionPane.showConfirmDialog(this, 
-            "确定要删除模板 \"" + selectedTemplate + "\" 吗?", 
-            "确认删除", 
-            JOptionPane.YES_NO_OPTION);
-            
-        if (result == JOptionPane.YES_OPTION) {
-            try {
-                templateManager.deleteTemplate(selectedTemplate);
-                refreshTemplateList();
-                JOptionPane.showMessageDialog(this, "模板删除成功!", "成功", JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "删除模板失败: " + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    
-    private WatermarkTemplate getCurrentTemplate() {
-        WatermarkTemplate template = new WatermarkTemplate();
-        template.setWatermarkText(watermarkText.getText());
-        template.setFontFamily((String) fontFamilyComboBox.getSelectedItem());
-        template.setFontSize((Integer) fontSizeSpinner.getValue());
-        template.setBold(boldCheckBox.isSelected());
-        template.setItalic(italicCheckBox.isSelected());
-        template.setTextColor(selectedColor);
-        template.setTransparency(transparencySlider.getValue());
-        template.setPosition((String) positionComboBox.getSelectedItem());
-        template.setRotationAngle(rotationSlider.getValue());
-        template.setHasShadow(shadowCheckBox.isSelected());
-        template.setHasStroke(strokeCheckBox.isSelected());
-        template.setUseCustomPosition(useCustomPosition);
-        template.setWatermarkOffset(watermarkOffset);
-        
-        // 计算并保存相对位置（如果使用了自定义位置）
-        if (useCustomPosition && currentImage != null) {
-            double relativeX = (double) watermarkOffset.x / currentImage.getWidth();
-            double relativeY = (double) watermarkOffset.y / currentImage.getHeight();
-            template.setRelativeX(relativeX);
-            template.setRelativeY(relativeY);
-        }
-        
-        return template;
-    }
-    
-    private void applyTemplate(WatermarkTemplate template) {
-        watermarkText.setText(template.getWatermarkText());
-        fontFamilyComboBox.setSelectedItem(template.getFontFamily());
-        fontSizeSpinner.setValue(template.getFontSize());
-        boldCheckBox.setSelected(template.isBold());
-        italicCheckBox.setSelected(template.isItalic());
-        selectedColor = template.getTextColor();
-        transparencySlider.setValue(template.getTransparency());
-        positionComboBox.setSelectedItem(template.getPosition());
-        rotationSlider.setValue(template.getRotationAngle());
-        rotationTextField.setText(String.valueOf(template.getRotationAngle()));
-        shadowCheckBox.setSelected(template.isHasShadow());
-        strokeCheckBox.setSelected(template.isHasStroke());
-        useCustomPosition = template.isUseCustomPosition();
-        
-        // 根据相对位置计算新的偏移量（如果使用了自定义位置且有当前图片）
-        if (template.isUseCustomPosition() && currentImage != null) {
-            int newOffsetX = (int) (template.getRelativeX() * currentImage.getWidth());
-            int newOffsetY = (int) (template.getRelativeY() * currentImage.getHeight());
-            watermarkOffset = new Point(newOffsetX, newOffsetY);
-        } else {
-            watermarkOffset = template.getWatermarkOffset() != null ? 
-                new Point(template.getWatermarkOffset()) : new Point(0, 0);
-        }
-    }
-    
-    private void loadLastSettings() {
-        try {
-            WatermarkTemplate lastSettings = templateManager.loadLastSettings();
-            if (lastSettings != null) {
-                applyTemplate(lastSettings);
-                updatePreview();
-            }
-        } catch (Exception e) {
-            // 忽略加载失败，使用默认设置
-            System.out.println("加载上次设置失败，使用默认设置: " + e.getMessage());
-        }
-    }
-    
-    private void saveLastSettings() {
-        try {
-            WatermarkTemplate currentSettings = getCurrentTemplate();
-            templateManager.saveLastSettings(currentSettings);
-        } catch (Exception e) {
-            System.out.println("保存设置失败: " + e.getMessage());
-        }
-    }
-    
-    // 重写窗口关闭事件以保存设置
-    @Override
-    protected void processWindowEvent(java.awt.event.WindowEvent e) {
-        if (e.getID() == java.awt.event.WindowEvent.WINDOW_CLOSING) {
-            saveLastSettings();
-        }
-        super.processWindowEvent(e);
-    }
-    
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             new SwingPhotoWatermarkApp().setVisible(true);
         });
     }
