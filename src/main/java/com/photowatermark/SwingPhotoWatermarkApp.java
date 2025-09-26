@@ -36,6 +36,9 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private JCheckBox shadowCheckBox;
     private JCheckBox strokeCheckBox;
     
+    // 输出格式选择
+    private JComboBox<String> outputFormatComboBox;
+    
     private List<File> imageFiles;
     private BufferedImage currentImage;
     
@@ -229,6 +232,17 @@ public class SwingPhotoWatermarkApp extends JFrame {
         
         panel.add(effectPanel);
         
+        // 输出格式选择
+        JPanel outputPanel = new JPanel();
+        outputPanel.setLayout(new BoxLayout(outputPanel, BoxLayout.Y_AXIS));
+        outputPanel.setBorder(new TitledBorder("输出格式"));
+        
+        outputFormatComboBox = new JComboBox<>(new String[]{"JPEG", "PNG"});
+        outputFormatComboBox.setSelectedItem("JPEG");
+        outputPanel.add(outputFormatComboBox);
+        
+        panel.add(outputPanel);
+        
         panel.add(Box.createVerticalGlue());
         
         return panel;
@@ -410,7 +424,7 @@ public class SwingPhotoWatermarkApp extends JFrame {
         public void actionPerformed(ActionEvent e) {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setMultiSelectionEnabled(true);
-            fileChooser.setFileFilter(new FileNameExtensionFilter("图片文件", "jpg", "jpeg", "png", "bmp", "gif"));
+            fileChooser.setFileFilter(new FileNameExtensionFilter("图片文件", "jpg", "jpeg", "png", "bmp", "gif", "tiff", "tif"));
             
             int result = fileChooser.showOpenDialog(SwingPhotoWatermarkApp.this);
             if (result == JFileChooser.APPROVE_OPTION) {
@@ -431,19 +445,44 @@ public class SwingPhotoWatermarkApp extends JFrame {
                 return;
             }
             
+            // 获取选择的输出格式
+            String selectedFormat = (String) outputFormatComboBox.getSelectedItem();
+            String formatExtension = selectedFormat.toLowerCase();
+            String formatName = selectedFormat.equals("JPEG") ? "jpg" : "png";
+            
             JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setFileFilter(new FileNameExtensionFilter("JPEG 图片", "jpg"));
+            fileChooser.setFileFilter(new FileNameExtensionFilter(selectedFormat + " 图片", formatName));
             
             int result = fileChooser.showSaveDialog(SwingPhotoWatermarkApp.this);
             if (result == JFileChooser.APPROVE_OPTION) {
                 File outputFile = fileChooser.getSelectedFile();
-                if (!outputFile.getName().toLowerCase().endsWith(".jpg")) {
-                    outputFile = new File(outputFile.getAbsolutePath() + ".jpg");
+                if (!outputFile.getName().toLowerCase().endsWith("." + formatName)) {
+                    outputFile = new File(outputFile.getAbsolutePath() + "." + formatName);
                 }
                 
                 try {
                     BufferedImage watermarkedImage = addWatermark(currentImage);
-                    ImageIO.write(watermarkedImage, "jpg", outputFile);
+                    
+                    // 根据格式处理图片
+                    if (selectedFormat.equals("PNG")) {
+                        // PNG格式保持透明通道
+                        ImageIO.write(watermarkedImage, "png", outputFile);
+                    } else {
+                        // JPEG格式，确保没有透明通道
+                        BufferedImage jpegImage = new BufferedImage(
+                            watermarkedImage.getWidth(), 
+                            watermarkedImage.getHeight(), 
+                            BufferedImage.TYPE_INT_RGB
+                        );
+                        Graphics2D g2d = jpegImage.createGraphics();
+                        g2d.setColor(Color.WHITE);
+                        g2d.fillRect(0, 0, jpegImage.getWidth(), jpegImage.getHeight());
+                        g2d.drawImage(watermarkedImage, 0, 0, null);
+                        g2d.dispose();
+                        
+                        ImageIO.write(jpegImage, "jpg", outputFile);
+                    }
+                    
                     JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "图片导出成功!", "成功", JOptionPane.INFORMATION_MESSAGE);
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "导出失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
@@ -453,10 +492,14 @@ public class SwingPhotoWatermarkApp extends JFrame {
     }
     
     private BufferedImage addWatermark(BufferedImage originalImage) {
+        // 根据输出格式决定图片类型
+        String selectedFormat = (String) outputFormatComboBox.getSelectedItem();
+        int imageType = selectedFormat.equals("PNG") ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+        
         BufferedImage watermarkedImage = new BufferedImage(
             originalImage.getWidth(), 
             originalImage.getHeight(), 
-            BufferedImage.TYPE_INT_RGB
+            imageType
         );
         
         Graphics2D g2d = watermarkedImage.createGraphics();
