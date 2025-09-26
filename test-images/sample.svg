@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="400" height="300" fill="#f0f8ff"/>
+  
+  <!-- 标题 -->
+  <text x="200" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#2c3e50">
+    测试图像样本
+  </text>
+  
+  <!-- 彩色圆形 -->
+  <circle cx="120" cy="150" r="40" fill="#e74c3c" opacity="0.8"/>
+  <circle cx="200" cy="150" r="40" fill="#3498db" opacity="0.8"/>
+  <circle cx="280" cy="150" r="40" fill="#2ecc71" opacity="0.8"/>
+  
+  <!-- 说明文字 -->
+  <text x="200" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#34495e">
+    用于测试水印功能的示例图像
+  </text>
+  
+  <!-- 格式标识 -->
+  <text x="200" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#7f8c8d">
+    SVG 矢量格式 - 400x300px
+  </text>
+  
+  <!-- 装饰边框 -->
+  <rect x="10" y="10" width="380" height="280" fill="none" stroke="#bdc3c7" stroke-width="2" rx="10"/>
+</svg>

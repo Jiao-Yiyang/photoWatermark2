@@ -36,8 +36,12 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private JCheckBox shadowCheckBox;
     private JCheckBox strokeCheckBox;
     
-    // 输出格式选择
+    // 导出选项相关组件
     private JComboBox<String> outputFormatComboBox;
+    private JSlider jpegQualitySlider;
+    private JTextField fileNamePatternField;
+    private JLabel outputFolderLabel;
+    private File selectedOutputFolder;
     
     private List<File> imageFiles;
     private BufferedImage currentImage;
@@ -239,9 +243,49 @@ public class SwingPhotoWatermarkApp extends JFrame {
         
         outputFormatComboBox = new JComboBox<>(new String[]{"JPEG", "PNG"});
         outputFormatComboBox.setSelectedItem("JPEG");
+        outputFormatComboBox.addActionListener(e -> updateQualitySliderVisibility());
         outputPanel.add(outputFormatComboBox);
         
+        // JPEG质量调节
+        JPanel qualityPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        qualityPanel.add(new JLabel("JPEG质量:"));
+        jpegQualitySlider = new JSlider(0, 100, 85);
+        jpegQualitySlider.setMajorTickSpacing(25);
+        jpegQualitySlider.setMinorTickSpacing(5);
+        jpegQualitySlider.setPaintTicks(true);
+        jpegQualitySlider.setPaintLabels(true);
+        qualityPanel.add(jpegQualitySlider);
+        outputPanel.add(qualityPanel);
+        
         panel.add(outputPanel);
+        
+        // 导出选项
+        JPanel exportOptionsPanel = new JPanel();
+        exportOptionsPanel.setLayout(new BoxLayout(exportOptionsPanel, BoxLayout.Y_AXIS));
+        exportOptionsPanel.setBorder(new TitledBorder("导出选项"));
+        
+        // 文件命名规则
+        JPanel namingPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        namingPanel.add(new JLabel("文件名模式:"));
+        fileNamePatternField = new JTextField("{name}_watermarked", 15);
+        fileNamePatternField.setToolTipText("可用变量: {name}=原文件名, {index}=序号, {timestamp}=时间戳");
+        namingPanel.add(fileNamePatternField);
+        exportOptionsPanel.add(namingPanel);
+        
+        // 输出文件夹选择
+        JPanel folderPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        folderPanel.add(new JLabel("输出文件夹:"));
+        outputFolderLabel = new JLabel("未选择");
+        outputFolderLabel.setPreferredSize(new Dimension(120, 25));
+        outputFolderLabel.setBorder(BorderFactory.createEtchedBorder());
+        folderPanel.add(outputFolderLabel);
+        
+        JButton selectFolderButton = new JButton("选择");
+        selectFolderButton.addActionListener(e -> selectOutputFolder());
+        folderPanel.add(selectFolderButton);
+        exportOptionsPanel.add(folderPanel);
+        
+        panel.add(exportOptionsPanel);
         
         panel.add(Box.createVerticalGlue());
         
@@ -422,6 +466,29 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private class ImportActionListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
+            // 显示导入选项对话框
+            String[] options = {"选择图片文件", "导入文件夹"};
+            int choice = JOptionPane.showOptionDialog(
+                SwingPhotoWatermarkApp.this,
+                "请选择导入方式：",
+                "导入选项",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                options[0]
+            );
+            
+            if (choice == 0) {
+                // 选择图片文件
+                importImageFiles();
+            } else if (choice == 1) {
+                // 导入文件夹
+                importFromFolder();
+            }
+        }
+        
+        private void importImageFiles() {
             JFileChooser fileChooser = new JFileChooser();
             fileChooser.setMultiSelectionEnabled(true);
             fileChooser.setFileFilter(new FileNameExtensionFilter("图片文件", "jpg", "jpeg", "png", "bmp", "gif", "tiff", "tif"));
@@ -429,7 +496,56 @@ public class SwingPhotoWatermarkApp extends JFrame {
             int result = fileChooser.showOpenDialog(SwingPhotoWatermarkApp.this);
             if (result == JFileChooser.APPROVE_OPTION) {
                 File[] selectedFiles = fileChooser.getSelectedFiles();
-                for (File file : selectedFiles) {
+                addImagesToList(selectedFiles);
+            }
+        }
+        
+        private void importFromFolder() {
+            JFileChooser folderChooser = new JFileChooser();
+            folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            folderChooser.setDialogTitle("选择包含图片的文件夹");
+            
+            int result = folderChooser.showOpenDialog(SwingPhotoWatermarkApp.this);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                File selectedFolder = folderChooser.getSelectedFile();
+                importImagesFromFolder(selectedFolder);
+            }
+        }
+        
+        private void importImagesFromFolder(File folder) {
+            if (!folder.isDirectory()) return;
+            
+            List<File> imageFilesInFolder = new ArrayList<>();
+            String[] supportedExtensions = {"jpg", "jpeg", "png", "bmp", "gif", "tiff", "tif"};
+            
+            File[] files = folder.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile()) {
+                        String fileName = file.getName().toLowerCase();
+                        for (String ext : supportedExtensions) {
+                            if (fileName.endsWith("." + ext)) {
+                                imageFilesInFolder.add(file);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (imageFilesInFolder.isEmpty()) {
+                JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, 
+                    "所选文件夹中没有找到支持的图片文件", "提示", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                addImagesToList(imageFilesInFolder.toArray(new File[0]));
+                JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, 
+                    "成功导入 " + imageFilesInFolder.size() + " 张图片", "导入完成", JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
+        
+        private void addImagesToList(File[] files) {
+            for (File file : files) {
+                if (!imageFiles.contains(file)) {  // 避免重复添加
                     imageFiles.add(file);
                     imageListModel.addElement(file.getName());
                 }
@@ -440,14 +556,40 @@ public class SwingPhotoWatermarkApp extends JFrame {
     private class ExportActionListener implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
+            if (imageFiles.isEmpty()) {
+                JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "请先导入图片", "提示", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            // 检查是否有选中的图片
+            int selectedIndex = imageList.getSelectedIndex();
+            if (selectedIndex == -1) {
+                // 没有选中图片，询问是否批量导出
+                int choice = JOptionPane.showConfirmDialog(
+                    SwingPhotoWatermarkApp.this,
+                    "没有选中图片。是否要批量导出所有图片？",
+                    "批量导出",
+                    JOptionPane.YES_NO_OPTION
+                );
+                
+                if (choice == JOptionPane.YES_OPTION) {
+                    batchExport();
+                }
+                return;
+            }
+            
+            // 单张图片导出
             if (currentImage == null) {
                 JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "请先选择一张图片", "提示", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             
+            exportSingleImage();
+        }
+        
+        private void exportSingleImage() {
             // 获取选择的输出格式
             String selectedFormat = (String) outputFormatComboBox.getSelectedItem();
-            String formatExtension = selectedFormat.toLowerCase();
             String formatName = selectedFormat.equals("JPEG") ? "jpg" : "png";
             
             JFileChooser fileChooser = new JFileChooser();
@@ -461,31 +603,95 @@ public class SwingPhotoWatermarkApp extends JFrame {
                 }
                 
                 try {
-                    BufferedImage watermarkedImage = addWatermark(currentImage);
-                    
-                    // 根据格式处理图片
-                    if (selectedFormat.equals("PNG")) {
-                        // PNG格式保持透明通道
-                        ImageIO.write(watermarkedImage, "png", outputFile);
-                    } else {
-                        // JPEG格式，确保没有透明通道
-                        BufferedImage jpegImage = new BufferedImage(
-                            watermarkedImage.getWidth(), 
-                            watermarkedImage.getHeight(), 
-                            BufferedImage.TYPE_INT_RGB
-                        );
-                        Graphics2D g2d = jpegImage.createGraphics();
-                        g2d.setColor(Color.WHITE);
-                        g2d.fillRect(0, 0, jpegImage.getWidth(), jpegImage.getHeight());
-                        g2d.drawImage(watermarkedImage, 0, 0, null);
-                        g2d.dispose();
-                        
-                        ImageIO.write(jpegImage, "jpg", outputFile);
-                    }
-                    
+                    exportImageWithWatermark(currentImage, outputFile, selectedFormat);
                     JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "图片导出成功!", "成功", JOptionPane.INFORMATION_MESSAGE);
                 } catch (IOException ex) {
                     JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "导出失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+        
+        private void batchExport() {
+            // 检查是否设置了输出文件夹
+            if (selectedOutputFolder == null) {
+                JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, "请先选择输出文件夹", "提示", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            String selectedFormat = (String) outputFormatComboBox.getSelectedItem();
+            String fileNamePattern = fileNamePatternField.getText().trim();
+            if (fileNamePattern.isEmpty()) {
+                fileNamePattern = "{name}_watermarked";
+            }
+            
+            int successCount = 0;
+            int failCount = 0;
+            
+            for (int i = 0; i < imageFiles.size(); i++) {
+                File imageFile = imageFiles.get(i);
+                try {
+                    BufferedImage image = ImageIO.read(imageFile);
+                    if (image != null) {
+                        // 生成输出文件名
+                        String outputFileName = generateOutputFileName(imageFile, fileNamePattern, i + 1, selectedFormat);
+                        File outputFile = new File(selectedOutputFolder, outputFileName);
+                        
+                        exportImageWithWatermark(image, outputFile, selectedFormat);
+                        successCount++;
+                    }
+                } catch (IOException ex) {
+                    failCount++;
+                    System.err.println("导出失败: " + imageFile.getName() + " - " + ex.getMessage());
+                }
+            }
+            
+            String message = String.format("批量导出完成！\n成功: %d 张\n失败: %d 张", successCount, failCount);
+            JOptionPane.showMessageDialog(SwingPhotoWatermarkApp.this, message, "批量导出结果", JOptionPane.INFORMATION_MESSAGE);
+        }
+        
+        private String generateOutputFileName(File originalFile, String pattern, int index, String format) {
+            String originalName = originalFile.getName();
+            String nameWithoutExt = originalName.substring(0, originalName.lastIndexOf('.'));
+            String extension = format.equals("JPEG") ? "jpg" : "png";
+            
+            String fileName = pattern
+                .replace("{name}", nameWithoutExt)
+                .replace("{index}", String.valueOf(index))
+                .replace("{format}", format.toLowerCase());
+            
+            return fileName + "." + extension;
+        }
+        
+        private void exportImageWithWatermark(BufferedImage image, File outputFile, String format) throws IOException {
+            BufferedImage watermarkedImage = addWatermark(image);
+            
+            if (format.equals("PNG")) {
+                // PNG格式保持透明通道
+                ImageIO.write(watermarkedImage, "png", outputFile);
+            } else {
+                // JPEG格式，确保没有透明通道
+                BufferedImage jpegImage = new BufferedImage(
+                    watermarkedImage.getWidth(), 
+                    watermarkedImage.getHeight(), 
+                    BufferedImage.TYPE_INT_RGB
+                );
+                Graphics2D g2d = jpegImage.createGraphics();
+                g2d.setColor(Color.WHITE);
+                g2d.fillRect(0, 0, jpegImage.getWidth(), jpegImage.getHeight());
+                g2d.drawImage(watermarkedImage, 0, 0, null);
+                g2d.dispose();
+                
+                // 使用JPEG质量设置
+                javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpg").next();
+                javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+                param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                float quality = jpegQualitySlider.getValue() / 100.0f;
+                param.setCompressionQuality(quality);
+                
+                try (javax.imageio.stream.ImageOutputStream ios = ImageIO.createImageOutputStream(outputFile)) {
+                    writer.setOutput(ios);
+                    writer.write(null, new javax.imageio.IIOImage(jpegImage, null, null), param);
+                    writer.dispose();
                 }
             }
         }
@@ -600,6 +806,31 @@ public class SwingPhotoWatermarkApp extends JFrame {
         
         g2d.dispose();
         return watermarkedImage;
+    }
+    
+    // 更新JPEG质量滑块的可见性
+    private void updateQualitySliderVisibility() {
+        boolean isJpeg = "JPEG".equals(outputFormatComboBox.getSelectedItem());
+        jpegQualitySlider.setVisible(isJpeg);
+        jpegQualitySlider.getParent().revalidate();
+        jpegQualitySlider.getParent().repaint();
+    }
+    
+    // 选择输出文件夹
+    private void selectOutputFolder() {
+        JFileChooser folderChooser = new JFileChooser();
+        folderChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        folderChooser.setDialogTitle("选择输出文件夹");
+        
+        if (selectedOutputFolder != null) {
+            folderChooser.setCurrentDirectory(selectedOutputFolder);
+        }
+        
+        int result = folderChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            selectedOutputFolder = folderChooser.getSelectedFile();
+            outputFolderLabel.setText("输出文件夹: " + selectedOutputFolder.getName());
+        }
     }
     
     public static void main(String[] args) {
