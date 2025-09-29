@@ -114,4 +114,4 @@ Photo Watermark 2 v1.0.0 是一个功能完整的 macOS 图片水印应用程序
 **Photo Watermark 2** - 让图片水印变得简单而精确！
 
 🔗 **下载链接**: 
-- [Photo Watermark-1.0.0.dmg](releases/v1.0.0/Photo%20Watermark-1.0.0.dmg)
+- 请从 GitHub Release 页面下载 Photo Watermark-1.0.0.dmg
