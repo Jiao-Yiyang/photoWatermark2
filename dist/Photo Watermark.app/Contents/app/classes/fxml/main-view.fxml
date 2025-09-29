@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane fx:id="mainPane" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.photowatermark.controller.MainController">
+   <left>
+      <!-- 左侧面板 - 图片列表 -->
+      <VBox fx:id="leftPanel" prefWidth="250.0" styleClass="left-panel">
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+         <children>
+            <Label styleClass="panel-title" text="图片列表" />
+            
+            <!-- 导入按钮组 -->
+            <HBox spacing="5.0">
+               <VBox.margin>
+                  <Insets bottom="10.0" top="10.0" />
+               </VBox.margin>
+               <children>
+                  <Button fx:id="importButton" onAction="#handleImportImage" styleClass="import-button" text="导入图片" />
+                  <Button fx:id="importFolderButton" onAction="#handleImportFolder" styleClass="import-button" text="导入文件夹" />
+               </children>
+            </HBox>
+            
+            <!-- 图片列表 -->
+            <ListView fx:id="imageListView" prefHeight="400.0" styleClass="image-list">
+               <VBox.vgrow>
+                  <Priority fx:constant="ALWAYS" />
+               </VBox.vgrow>
+            </ListView>
+            
+            <!-- 清空按钮 -->
+            <Button fx:id="clearAllButton" onAction="#handleClearAll" styleClass="clear-button" text="清空列表">
+               <VBox.margin>
+                  <Insets top="10.0" />
+               </VBox.margin>
+            </Button>
+         </children>
+      </VBox>
+   </left>
+   
+   <center>
+      <!-- 中央面板 - 图片预览 -->
+      <VBox fx:id="centerPanel" styleClass="center-panel">
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+         <children>
+            <Label styleClass="panel-title" text="预览区域" />
+            
+            <!-- 预览图片 -->
+            <StackPane styleClass="preview-container">
+               <VBox.margin>
+                  <Insets top="10.0" />
+               </VBox.margin>
+               <VBox.vgrow>
+                  <Priority fx:constant="ALWAYS" />
+               </VBox.vgrow>
+               <children>
+                  <ImageView fx:id="previewImageView" fitHeight="500.0" fitWidth="600.0" pickOnBounds="true" preserveRatio="true" styleClass="preview-image" />
+               </children>
+            </StackPane>
+            
+            <!-- 预览状态 -->
+            <Label fx:id="previewStatusLabel" styleClass="status-label" text="请导入图片开始使用">
+               <VBox.margin>
+                  <Insets top="10.0" />
+               </VBox.margin>
+            </Label>
+         </children>
+      </VBox>
+   </center>
+   
+   <right>
+      <!-- 右侧面板 - 水印设置 -->
+      <VBox fx:id="rightPanel" prefWidth="300.0" styleClass="right-panel">
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+         <children>
+            <Label styleClass="panel-title" text="水印设置" />
+            
+            <!-- 水印类型选择 -->
+            <VBox styleClass="setting-group">
+               <VBox.margin>
+                  <Insets top="15.0" />
+               </VBox.margin>
+               <children>
+                  <Label styleClass="group-title" text="水印类型" />
+                  <RadioButton fx:id="textWatermarkRadio" selected="true" styleClass="radio-option" text="文本水印">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </RadioButton>
+                  <RadioButton fx:id="imageWatermarkRadio" styleClass="radio-option" text="图片水印">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </RadioButton>
+               </children>
+            </VBox>
+            
+            <!-- 文本水印设置 -->
+            <VBox fx:id="textWatermarkPanel" styleClass="setting-group">
+               <VBox.margin>
+                  <Insets top="15.0" />
+               </VBox.margin>
+               <children>
+                  <Label styleClass="group-title" text="文本设置" />
+                  
+                  <Label styleClass="field-label" text="水印文本:">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                  </Label>
+                  <TextField fx:id="watermarkTextField" promptText="请输入水印文本" styleClass="text-field">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </TextField>
+                  
+                  <Label styleClass="field-label" text="透明度:">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                  </Label>
+                  <HBox alignment="CENTER_LEFT" spacing="10.0">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                     <children>
+                        <Slider fx:id="transparencySlider" prefWidth="200.0" styleClass="slider" />
+                        <Label fx:id="transparencyLabel" styleClass="value-label" text="80%" />
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+            
+            <!-- 位置设置 -->
+            <VBox fx:id="positionPanel" styleClass="setting-group">
+               <VBox.margin>
+                  <Insets top="15.0" />
+               </VBox.margin>
+               <children>
+                  <Label styleClass="group-title" text="位置设置" />
+                  
+                  <!-- 九宫格位置按钮 -->
+                  <GridPane hgap="5.0" vgap="5.0">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                     <children>
+                        <Button fx:id="topLeftButton" onAction="#handleTopLeft" styleClass="position-button" text="↖" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <Button fx:id="topCenterButton" onAction="#handleTopCenter" styleClass="position-button" text="↑" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                        <Button fx:id="topRightButton" onAction="#handleTopRight" styleClass="position-button" text="↗" GridPane.columnIndex="2" GridPane.rowIndex="0" />
+                        
+                        <Button fx:id="middleLeftButton" onAction="#handleMiddleLeft" styleClass="position-button" text="←" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <Button fx:id="middleCenterButton" onAction="#handleMiddleCenter" styleClass="position-button" text="●" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <Button fx:id="middleRightButton" onAction="#handleMiddleRight" styleClass="position-button" text="→" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                        
+                        <Button fx:id="bottomLeftButton" onAction="#handleBottomLeft" styleClass="position-button" text="↙" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                        <Button fx:id="bottomCenterButton" onAction="#handleBottomCenter" styleClass="position-button" text="↓" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <Button fx:id="bottomRightButton" onAction="#handleBottomRight" styleClass="position-button" text="↘" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+                     </children>
+                     <columnConstraints>
+                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                     </columnConstraints>
+                     <rowConstraints>
+                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                     </rowConstraints>
+                  </GridPane>
+               </children>
+            </VBox>
+            
+            <!-- 导出设置 -->
+            <VBox fx:id="exportPanel" styleClass="setting-group">
+               <VBox.margin>
+                  <Insets top="15.0" />
+               </VBox.margin>
+               <children>
+                  <Label styleClass="group-title" text="导出设置" />
+                  
+                  <Label styleClass="field-label" text="输出格式:">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                  </Label>
+                  <ComboBox fx:id="outputFormatCombo" prefWidth="200.0" styleClass="combo-box">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </ComboBox>
+                  
+                  <Label styleClass="field-label" text="输出文件夹:">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                  </Label>
+                  <HBox spacing="5.0">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                     <children>
+                        <TextField fx:id="outputFolderField" prefWidth="200.0" promptText="选择输出文件夹" styleClass="text-field">
+                           <HBox.hgrow>
+                              <Priority fx:constant="ALWAYS" />
+                           </HBox.hgrow>
+                        </TextField>
+                        <Button fx:id="browseOutputButton" onAction="#handleBrowseOutput" styleClass="browse-button" text="浏览" />
+                     </children>
+                  </HBox>
+                  
+                  <Label styleClass="field-label" text="命名规则:">
+                     <VBox.margin>
+                        <Insets top="10.0" />
+                     </VBox.margin>
+                  </Label>
+                  <ComboBox fx:id="namingRuleCombo" prefWidth="200.0" styleClass="combo-box">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </ComboBox>
+                  
+                  <TextField fx:id="prefixField" promptText="前缀" styleClass="text-field" visible="false">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </TextField>
+                  
+                  <TextField fx:id="suffixField" promptText="后缀" styleClass="text-field" visible="false">
+                     <VBox.margin>
+                        <Insets top="5.0" />
+                     </VBox.margin>
+                  </TextField>
+               </children>
+            </VBox>
+         </children>
+      </VBox>
+   </right>
+   
+   <bottom>
+      <!-- 底部操作按钮 -->
+      <HBox fx:id="actionPanel" alignment="CENTER" spacing="15.0" styleClass="action-panel">
+         <padding>
+            <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+         </padding>
+         <children>
+            <Button fx:id="previewButton" onAction="#handlePreview" styleClass="action-button" text="预览效果" />
+            <Button fx:id="exportButton" onAction="#handleExport" styleClass="action-button primary" text="导出当前" />
+            <Button fx:id="exportAllButton" onAction="#handleExportAll" styleClass="action-button primary" text="导出全部" />
+         </children>
+      </HBox>
+   </bottom>
+</BorderPane>
