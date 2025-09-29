@@ -6,17 +6,13 @@ Photo Watermark 2 v1.0.0 是一个功能完整的 macOS 图片水印应用程序
 
 ## 📦 发布内容
 
-### macOS 应用包
-- **Photo Watermark.app** (147MB)
-  - 完整的 macOS 原生应用
-  - 包含 Java 运行时环境
-  - 可直接在 macOS 10.14+ 上运行
-
 ### DMG 安装包
 - **Photo Watermark-1.0.0.dmg** (60MB)
   - 标准 macOS 安装包
   - 双击挂载，拖拽安装
-  - 推荐的分发方式
+  - 包含完整的 macOS 原生应用
+  - 内置 Java 运行时环境
+  - 可直接在 macOS 10.14+ 上运行
 
 ## ✨ 主要功能
 
@@ -76,16 +72,11 @@ Photo Watermark 2 v1.0.0 是一个功能完整的 macOS 图片水印应用程序
 
 ## 📥 安装方法
 
-### 方式一：DMG 安装包（推荐）
+### DMG 安装包安装
 1. 下载 `Photo Watermark-1.0.0.dmg`
 2. 双击 DMG 文件挂载
 3. 将 "Photo Watermark" 拖拽到 Applications 文件夹
 4. 从 Launchpad 或 Applications 启动应用
-
-### 方式二：直接使用 .app 包
-1. 下载并解压 `Photo Watermark.app`
-2. 双击应用直接运行
-3. 可选择移动到 Applications 文件夹
 
 ## 🚀 快速开始
 
@@ -123,5 +114,4 @@ Photo Watermark 2 v1.0.0 是一个功能完整的 macOS 图片水印应用程序
 **Photo Watermark 2** - 让图片水印变得简单而精确！
 
 🔗 **下载链接**: 
-- [Photo Watermark-1.0.0.dmg](dist/Photo%20Watermark-1.0.0.dmg)
-- [Photo Watermark.app](dist/Photo%20Watermark.app/)
+- [Photo Watermark-1.0.0.dmg](releases/v1.0.0/Photo%20Watermark-1.0.0.dmg)

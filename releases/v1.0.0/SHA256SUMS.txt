@@ -1,2 +1,1 @@
 0d5e217607d7bc2c8969461bb0181df9cf353e8ef6125fa912896dc4a55b4ba4  Photo Watermark-1.0.0.dmg
-2c63d484db002fabbb917e90c1fc85b841f2ce2b429468a87f2f912e6147d5a2  Photo Watermark.app.zip
